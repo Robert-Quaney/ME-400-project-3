@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt #required for plotting
 import matplotlib.animation as animation
 import numpy as np #required to convert to numerical array
 from connector import OBDConnector #required to include OBDConnector class
-# option 2 //////////////////////////////////////////
+
+# Helper functions
 
 def MakeHex2(value):
     value = value.strip()
@@ -28,7 +29,7 @@ def IntToHex2(num):
     return digits[first] + digits[second]
 
 
-def ListContains(mylist, value):
+def inLists(mylist, value):
     for i in range(len(mylist)):
         if mylist[i] == value:
             return True
@@ -36,7 +37,7 @@ def ListContains(mylist, value):
     return False
 
 
-def FindPIDIndex(pid_codes, pid):
+def FindPID(pid_codes, pid):
     for i in range(len(pid_codes)):
         if pid_codes[i] == pid:
             return i
@@ -44,7 +45,7 @@ def FindPIDIndex(pid_codes, pid):
     return -1
 
 
-def LoadPIDData():
+def PIDData():
     pid_codes = []
     descriptions = []
     units = []
@@ -76,7 +77,7 @@ def LoadPIDData():
     return pid_codes, descriptions, units
 
 
-def CleanHexResponse(response):
+def CleanHexResp(response):
     response = response.replace(" ", "")
     response = response.strip()
 
@@ -88,7 +89,7 @@ def CleanHexResponse(response):
     return ""
 
 
-def HexDigitToBinary(ch):
+def HexDigToBinary(ch):
     if ch == "0":
         return "0000"
     elif ch == "1":
@@ -125,11 +126,11 @@ def HexDigitToBinary(ch):
         return "0000"
 
 
-def HexToBinary32(hex_value):
+def HexToBinary(hex_value):
     binary = ""
 
     for i in range(len(hex_value)):
-        binary = binary + HexDigitToBinary(hex_value[i])
+        binary = binary + HexDigToBinary(hex_value[i])
 
     while len(binary) < 32:
         binary = "0" + binary
@@ -140,7 +141,7 @@ def HexToBinary32(hex_value):
     return binary
 
 
-def CleanBinaryResponse(response, length):
+def CleanBinaryResp(response, length):
     bits = ""
 
     for i in range(len(response)):
@@ -155,12 +156,12 @@ def CleanBinaryResponse(response, length):
     return bits[0:length]
 
 
-def AddPIDToList(pid_list, pid):
-    if ListContains(pid_list, pid) == False:
+def PIDtoList(pid_list, pid):
+    if inLists(pid_list, pid) == False:
         pid_list.append(pid)
 
 
-def GetEnabledPIDs():
+def EnabledPIDs():
     enabled = []
 
     commands = ["0100", "0120", "0140", "0160", "0900"]
@@ -170,47 +171,99 @@ def GetEnabledPIDs():
     for block in range(len(commands)):
         resp = e.getPIDsingle(commands[block])
 
-        hex_data = CleanHexResponse(resp)
-        bin_data = HexToBinary32(hex_data)
+        hex_data = CleanHexResp(resp)
+        bin_data = HexToBinary(hex_data)
 
         for i in range(32):
             if bin_data[i] == "1":
                 pid_num = start_pids[block] + i
                 pid_code = modes[block] + IntToHex2(pid_num)
 
-                AddPIDToList(enabled, pid_code)
+                PIDtoList(enabled, pid_code)
 
     return enabled
 
 
-def GetNormalizedPIDs():
+def NormPIDs():
     normalized = []
 
     # PIDN gives normalized mode 01 PIDs
     pidn = e.getPIDsingle("PIDN")
-    pidn = CleanBinaryResponse(pidn, 128)
+    pidn = CleanBinaryResp(pidn, 128)
 
     for i in range(128):
         if pidn[i] == "1":
             pid_num = i + 1
             pid_code = "01" + IntToHex2(pid_num)
 
-            AddPIDToList(normalized, pid_code)
+            PIDtoList(normalized, pid_code)
 
     # PIEN gives normalized mode 09 PIDs
     pien = e.getPIDsingle("PIEN")
-    pien = CleanBinaryResponse(pien, 32)
+    pien = CleanBinaryResp(pien, 132)
 
-    for i in range(32):
+    for i in range(132):
         if pien[i] == "1":
             pid_num = i + 1
             pid_code = "09" + IntToHex2(pid_num)
 
-            AddPIDToList(normalized, pid_code)
+            PIDtoList(normalized, pid_code)
 
     return normalized
 
-# option 2 ////////////////////////////////////////////////////////////////////////////
+
+# Option 3 helper functions
+
+def CalcMPG(speed, maf):
+    # speed should be vehicle speed from PID 010D
+    # maf should be mass air flow from PID 0110
+
+    try:
+        speed = float(speed)
+        maf = float(maf)
+
+        if maf <= 0:
+            return 0.0
+
+        mpg = 710.7 * speed / maf
+        return mpg
+
+    except:
+        return 0.0
+
+
+def AnimateMPG(i):
+    global xs
+    global ys
+
+    speed = e.getPIDsingle("010D")
+    maf = e.getPIDsingle("0110")
+
+    mpg = CalcMPG(speed, maf)
+
+    xs.append(dt.datetime.now().strftime("%H:%M:%S"))
+    ys.append(mpg)
+
+    # Keep only the latest 20 points so graph stays readable
+    if len(xs) > 20:
+        xs = xs[-20:]
+        ys = ys[-20:]
+
+    plt.cla()
+    plt.plot(xs, ys, marker="o")
+
+    plt.title("Real Time MPG")
+    plt.xlabel("Time")
+    plt.ylabel("MPG")
+
+    plt.xticks(rotation=45)
+    plt.grid(True)
+
+    print("Speed =", speed, "MAF =", maf, "MPG =", mpg)
+
+
+# Main menu function
+
 def MainMenu():
     os.system("cls")
 
@@ -220,22 +273,30 @@ def MainMenu():
     print("4.  Exit Program")
     selection = input("Input your selection...")
     return selection
+
+
 #
 #   Begin main program
 #
+
 # Setup some global lists to use for mpg real time plotting.
 xs = []
 ys = []
+
 # Create instance of the OBDConnector object.
 e = OBDConnector(False)
+
 # Connect to the Arduino
 e.connect()
+
 # Initialize the main menu selection.
 selection = 0
-# Loop until 
+
+# Loop until user exits
 while (selection != "4"):
     # Get menu selection from user.
-    selection = MainMenu()  
+    selection = MainMenu()
+
     # Branch based on user selection.
     if (selection == "1"):
         #
@@ -246,20 +307,21 @@ while (selection != "4"):
         # selected by user.
         #
         input("Press any key to continue")
+
     elif (selection == "2"):
         os.system("cls")
 
-        pid_codes, descriptions, units = LoadPIDData()
+        pid_codes, descriptions, units = PIDData()
 
-        enabled_pids = GetEnabledPIDs()
-        normalized_pids = GetNormalizedPIDs()
+        enabled_pids = EnabledPIDs()
+        normalized_pids = NormPIDs()
 
         graph_pids = []
         graph_index = []
 
         # keep only PIDs that are enabled and normalized
         for i in range(len(pid_codes)):
-            if ListContains(enabled_pids, pid_codes[i]) and ListContains(normalized_pids, pid_codes[i]):
+            if inLists(enabled_pids, pid_codes[i]) and inLists(normalized_pids, pid_codes[i]):
                 graph_pids.append(pid_codes[i])
                 graph_index.append(i)
 
@@ -310,14 +372,24 @@ while (selection != "4"):
                 plt.legend(loc="upper left")
 
                 plt.show()
+
     elif (selection == "3"):
-    #
-    # Modify following functionality to plot the
-    # mpg calculation in real time.
-    #
+        os.system("cls")
+
+        print("Graphing MPG Data")
+        print("Close the graph window to return to the main menu.")
+
+        xs.clear()
+        ys.clear()
+
+        fig = plt.figure()
+
+        ani = animation.FuncAnimation(fig, AnimateMPG, interval=1000)
+
+        plt.show()
+
         input("Press any key to continue")
 
 
-# Close the OBDConnector object 
+# Close the OBDConnector object
 e.close()
-
