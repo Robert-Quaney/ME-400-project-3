@@ -1,1 +1,63 @@
 # ME-400-project-3
+import os #required for os.system("cls")
+import csv #required to process csv file.
+import datetime as dt
+import matplotlib.pyplot as plt #required for plotting
+import matplotlib.animation as animation
+import numpy as np #required to convert to numerical array
+from connector import OBDConnector #required to include OBDConnector class
+
+def MainMenu():
+    os.system("cls")
+
+    print("1.  Query PID Data")
+    print("2.  Graph PID Data")
+    print("3.  Graph MPG Data")
+    print("4.  Exit Program")
+    selection = input("Input your selection...")
+    return selection
+#
+#   Begin main program
+#
+# Setup some global lists to use for mpg real time plotting.
+xs = []
+ys = []
+# Create instance of the OBDConnector object.
+e = OBDConnector(False)
+# Connect to the Arduino
+e.connect()
+# Initialize the main menu selection.
+selection = 0
+# Loop until 
+while (selection != "4"):
+    # Get menu selection from user.
+    selection = MainMenu()  
+    # Branch based on user selection.
+    if (selection == "1"):
+        #
+        # Create menu listing of PIDS based on
+        # contents of piddata.csv.  Disable options
+        # that are not enabled for connected
+        # vehicle.  Display PID data for option
+        # selected by user.
+        #
+        input("Press any key to continue")
+    elif (selection == "2"):
+    #
+    # Create menu listing of PIDS based on
+    # contents of piddata.csv. Disable options
+    # that are not enabled for connected
+    # vehicle. Plot PID data for option
+    # selected by user.
+    #
+        input("Press any key to continue")
+    elif (selection == "3"):
+    #
+    # Modify following functionality to plot the
+    # mpg calculation in real time.
+    #
+        input("Press any key to continue")
+
+
+# Close the OBDConnector object 
+e.close()
