@@ -232,31 +232,57 @@ def CalcMPG(speed, maf):
         return 0.0
 
 
-def AnimateMPG(i):
-    global xs
-    global ys
+def PlotMPGData():
+    os.system("cls")
 
+    print("Graphing MPG Data")
+    print("Close the graph window to return to the main menu.")
+
+    xs.clear()
+    ys.clear()
+
+    # Add a plot to the figure.
+    fig = plt.figure()
+
+    ax = fig.add_subplot(1, 1, 1)
+
+    # Set up plot to call AnimateMPG function periodically
+    ani = animation.FuncAnimation(fig, AnimateMPG, fargs=(fig, ax, xs, ys), interval=1000)
+
+    plt.show()
+
+
+def AnimateMPG(i, fig, ax, xs, ys):
+    # Read speed data from PID 010D
     speed = e.getPIDsingle("010D")
+
+    # Read mass air flow data from PID 0110
     maf = e.getPIDsingle("0110")
 
     mpg = CalcMPG(speed, maf)
 
-    xs.append(dt.datetime.now().strftime("%H:%M:%S"))
+    # Add x and y data to lists
+    xs.append(dt.datetime.now().strftime("%M:%S"))
     ys.append(mpg)
 
-    # Keep only the latest 20 points so graph stays readable
-    if len(xs) > 20:
-        xs = xs[-20:]
-        ys = ys[-20:]
+    # Limit x and y lists to 20 items
+    xs = xs[-20:]
+    ys = ys[-20:]
 
-    plt.cla()
-    plt.plot(xs, ys, marker="o")
+    # Draw x and y lists
+    ax.clear()
+    ax.plot(xs, ys)
 
-    plt.title("Real Time MPG")
+    # Rescale the graph
+    ax.relim()
+    ax.autoscale_view()
+
+    # Format plot
+    plt.xticks(rotation=45, ha="right")
+    plt.subplots_adjust(bottom=0.30)
+    plt.title("MPG VERSUS TIME")
     plt.xlabel("Time")
-    plt.ylabel("MPG")
-
-    plt.xticks(rotation=45)
+    plt.ylabel("Miles Per Gallon")
     plt.grid(True)
 
     print("Speed =", speed, "MAF =", maf, "MPG =", mpg)
@@ -335,25 +361,24 @@ while (selection != "4"):
 
             for i in range(len(graph_pids)):
                 index = graph_index[i]
+                
+                print(graph_pids[i] + " - " + descriptions[index] + " (" + units[index] + ")")
 
-                print(str(i + 1) + ". " + graph_pids[i] + " - " +
-                      descriptions[index] + " (" + units[index] + ")")
+            pid_choice = input("\nEnter 4-digit HEX PID code to graph: ")
+            pid_choice = pid_choice.strip()
+            pid_choice = pid_choice.upper()
 
-            choice = input("\nEnter menu number to graph: ")
+            pid_index = FindPID(pid_codes, pid_choice)
 
-            try:
-                choice = int(choice)
-            except:
-                choice = 0
+            if pid_index == -1:
+              print("\nInvalid PID selection.")
+              input("Press any key to return to the main menu")
 
-            if choice < 1 or choice > len(graph_pids):
-                print("\nInvalid PID selection.")
+            elif inLists(graph_pids, pid_choice) == False:
+                print("\nPID " + pid_choice + " is not available for graphing.")
                 input("Press any key to return to the main menu")
 
             else:
-                pid_choice = graph_pids[choice - 1]
-                pid_index = graph_index[choice - 1]
-
                 # get 60 data points, one point every 1000 ms
                 tdat, pdat = e.getPIDmultiple(pid_choice, 60, 1000)
 
@@ -372,24 +397,10 @@ while (selection != "4"):
                 plt.legend(loc="upper left")
 
                 plt.show()
-
     elif (selection == "3"):
-        os.system("cls")
-
-        print("Graphing MPG Data")
-        print("Close the graph window to return to the main menu.")
-
-        xs.clear()
-        ys.clear()
-
-        fig = plt.figure()
-
-        ani = animation.FuncAnimation(fig, AnimateMPG, interval=1000)
-
-        plt.show()
+        PlotMPGData()
 
         input("Press any key to continue")
-
 
 # Close the OBDConnector object
 e.close()
