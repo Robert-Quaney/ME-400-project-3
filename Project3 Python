@@ -319,4 +319,4 @@ while (selection != "4"):
 
 
 # Close the OBDConnector object 
-e.close()
+
