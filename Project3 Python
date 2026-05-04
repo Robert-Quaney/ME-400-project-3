@@ -325,14 +325,70 @@ while (selection != "4"):
 
     # Branch based on user selection.
     if (selection == "1"):
-        #
+       # a. clear screen
+        os.system("cls")
         # Create menu listing of PIDS based on
         # contents of piddata.csv.  Disable options
         # that are not enabled for connected
         # vehicle.  Display PID data for option
         # selected by user.
         #
-        input("Press any key to continue")
+         # b. read PID data
+        pid_dict = {}
+        with open('piddata.csv', mode = 'r') as myfile:
+            reader = csv.reader(myfile)
+            next(reader) # skips the first row in csv
+
+            for row in reader:
+                pid_dict[row[0]] = {"descrpt": row[1], "units": row[2]}
+
+        # c. bit wise stuff
+        special_pids = ["0100", "0120", "0140", "0160", "0900"]
+        enabled_pids = ["0100", "0120", "0140", "0160", "0900"]
+
+        for s_pids in special_pids:
+            try:
+                #removes the spaces from the response, and discards the leading header information
+                hex_clear = e.getPIDsingle(s_pids).replace(" ", "")[4:12]
+
+                #convert hex to 32 bit binary
+                hex_to_binary = bin(int(hex_clear, 16))[2:].zfill(32)
+
+                #finding bits from hex code
+                bit_start = int(s_pids, 16)
+                for i in range(len(hex_to_binary)):
+                    if hex_to_binary[i] == "1":
+                        enabled_hex = hex(bit_start + (i + 1))[2:].upper().zfill(4)
+                        if enabled_hex not in enabled_pids:
+                            enabled_pids.append(enabled_hex)
+            
+            except:
+                #for the pin 0900
+                continue
+
+        # print formatted data
+        print(f"{'HEX':<7} - {'Discription':<45} (Units)")
+
+
+        #sorting menu order
+        for hex_code in sorted(pid_dict.keys()):
+            if hex_code in enabled_pids:
+                info = pid_dict[hex_code]
+                print(f"{hex_code} - {info['descrpt']} ({info['units']})")
+
+        # d. user select pid
+        user_enter = input("\n Enter 4 digit HEX code").upper()
+
+        if user_enter in enabled_pids and user_enter in pid_dict:
+            data = e.getPIDsingle(user_enter)
+            units = pid_dict[user_enter]['units']
+            print(f"\n PIN DATA FOR {user_enter} = {data} {units} ")
+        
+        else:
+            print("\nError: Invalid PID")
+
+        # e. return prompt
+        input("\nPress any key to return to the main menu")
 
     elif (selection == "2"):
         os.system("cls")
